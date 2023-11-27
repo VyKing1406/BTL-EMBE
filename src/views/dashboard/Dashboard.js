@@ -1,8 +1,9 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, Fragment } from 'react'
-
 import {
+  CCardFooter,
+  CCardHeader,
   CButton,
   CCard,
   CCardBody,
@@ -13,7 +14,6 @@ import {
   CInputGroup,
   CInputGroupText,
   CFormInput,
-  CFormSelect,
 } from '@coreui/react'
 import { CChartLine } from '@coreui/react-chartjs'
 import { getStyle, hexToRgba } from '@coreui/utils'
@@ -25,7 +25,7 @@ import mqtt from 'mqtt'
 const options = {
   protocol: 'ws',
   username: 'ahihi',
-  password: 'aio_ngUi52lI5iUvF4mS9lRnzlGXr7pH',
+  password: 'aio_juUS42RSgbVonVX1qMTYoKS2dmFY',
   keepalive: 20,
   // clientId uniquely identifies client
   // choose any string you wish
@@ -36,9 +36,11 @@ const client = mqtt.connect('ws://io.adafruit.com:443', options)
 client.subscribe('ahihi/feeds/temperature')
 client.subscribe('ahihi/feeds/soilMoisture')
 client.subscribe('ahihi/feeds/humidity')
+client.subscribe('ahihi/feeds/pump')
+client.subscribe('ahihi/feeds/control')
 
 const Dashboard = () => {
-  const apiKey = 'aio_ngUi52lI5iUvF4mS9lRnzlGXr7pH'
+  const apiKey = 'aio_juUS42RSgbVonVX1qMTYoKS2dmFY'
   var note
 
   // Sets default React state
@@ -61,20 +63,44 @@ const Dashboard = () => {
   const [tempD, setTempD] = useState([])
   const [soilD, setSoilD] = useState([])
   const [humiD, setHumiD] = useState([])
-
+  const [isPumpOn, setIsPumpOn] = useState(false)
   client.on('message', function (topic, message) {
     note = message.toString()
     // Updates React state with message
-    if (topic === 'ahihi/feeds/temperature') {
-      setTemp(note)
+    if (topic === 'ahihi/feeds/pump') {
+      setIsPumpOn(Number(note))
+    } else {
+      const currentDate = new Date()
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1 // Tháng tính từ 0 đến 11, nên cần cộng thêm 1
+      const day = currentDate.getDate()
+      const nowDate = `${day}/${month}/${year}`
+      const newDate = {
+        created_at: nowDate,
+        value: note,
+      }
+      if (topic === 'ahihi/feeds/temperature') {
+        setTemp(note)
+        setTempD((prev) => {
+          const newTempD = [...prev.slice(1), newDate]
+          return newTempD
+        })
+      }
+      if (topic === 'ahihi/feeds/soilMoisture') {
+        setSoil(note)
+        setSoilD((prev) => {
+          const newTempD = [...prev.slice(1), newDate]
+          return newTempD
+        })
+      }
+      if (topic === 'ahihi/feeds/humidity') {
+        setHumi(note)
+        setHumiD((prev) => {
+          const newTempD = [...prev.slice(1), newDate]
+          return newTempD
+        })
+      }
     }
-    if (topic === 'ahihi/feeds/soilMoisture') {
-      setSoil(note)
-    }
-    if (topic === 'ahihi/feeds/humidity') {
-      setHumi(note)
-    }
-    console.log(topic)
   })
   const fetchData = (url, receiver, topic) => {
     // Gọi API và nhận dữ liệu
@@ -94,6 +120,9 @@ const Dashboard = () => {
         }
         if (topic === 'humi') {
           setHumi(response.data[0]?.value)
+        }
+        if (topic === 'pump') {
+          setIsPumpOn(Number(response.data[0]?.value))
         }
         receiver(response.data.reverse())
       })
@@ -115,7 +144,9 @@ const Dashboard = () => {
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/temperature/data', setTempD, 'temp')
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/soilmoisture/data', setSoilD, 'soil')
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/humidity/data', setHumiD, 'humi')
-  }, [currentTemp, currentHumi, currentSoil])
+    fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/pump/data', setHumiD, 'pump')
+  }, [])
+
   const date = new Date()
 
   const [input1, setInput1] = useState('')
@@ -137,12 +168,22 @@ const Dashboard = () => {
     const dataToSend = `${input1} ${input2}`
 
     // Gửi dữ liệu bằng Axios
-    publish('ahihi/feeds/co', dataToSend)
+    publish('ahihi/feeds/control', dataToSend)
   }
+  //display state pumb
 
   return (
     <>
       <h3>Pump control</h3>
+      <CRow>
+        <CCol sm="12">
+          <CCard>
+            <CCardBody color={isPumpOn ? 'danger' : 'success'}>
+              <p>Pump is {isPumpOn ? 'on' : 'off'}</p>
+            </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
       <CForm
         className="row row-cols-lg-auto g-3 align-items-center"
         style={{ paddingBottom: '20px', paddingTop: '20px' }}
@@ -219,6 +260,7 @@ const Dashboard = () => {
               ],
             }}
             options={{
+              animation: false,
               maintainAspectRatio: false,
               plugins: {
                 legend: {
@@ -298,6 +340,7 @@ const Dashboard = () => {
               ],
             }}
             options={{
+              animation: false,
               maintainAspectRatio: false,
               plugins: {
                 legend: {
@@ -377,6 +420,7 @@ const Dashboard = () => {
               ],
             }}
             options={{
+              animation: false,
               maintainAspectRatio: false,
               plugins: {
                 legend: {
