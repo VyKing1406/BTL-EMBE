@@ -25,7 +25,7 @@ import mqtt from 'mqtt'
 const options = {
   protocol: 'ws',
   username: 'ahihi',
-  password: 'aio_juUS42RSgbVonVX1qMTYoKS2dmFY',
+  password: 'aio_Zqmr890i9ayyOB9x4tPcygNAUnVX',
   keepalive: 20,
   // clientId uniquely identifies client
   // choose any string you wish
@@ -40,7 +40,7 @@ client.subscribe('ahihi/feeds/pump')
 client.subscribe('ahihi/feeds/control')
 
 const Dashboard = () => {
-  const apiKey = 'aio_juUS42RSgbVonVX1qMTYoKS2dmFY'
+  const apiKey = 'aio_Zqmr890i9ayyOB9x4tPcygNAUnVX'
   var note
 
   // Sets default React state
