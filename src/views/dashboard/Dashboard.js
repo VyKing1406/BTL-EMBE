@@ -15,6 +15,7 @@ import {
   CInputGroupText,
   CFormInput,
 } from '@coreui/react'
+import { DatePicker, Space } from 'antd'
 import { CChartLine } from '@coreui/react-chartjs'
 import { getStyle, hexToRgba } from '@coreui/utils'
 import CIcon from '@coreui/icons-react'
@@ -25,7 +26,7 @@ import mqtt from 'mqtt'
 const options = {
   protocol: 'ws',
   username: 'ahihi',
-  password: 'aio_Zqmr890i9ayyOB9x4tPcygNAUnVX',
+  password: 'aio_bppf47tF4AX8gv1REfgyIFxrZTFh',
   keepalive: 20,
   // clientId uniquely identifies client
   // choose any string you wish
@@ -40,7 +41,7 @@ client.subscribe('ahihi/feeds/pump')
 client.subscribe('ahihi/feeds/control')
 
 const Dashboard = () => {
-  const apiKey = 'aio_Zqmr890i9ayyOB9x4tPcygNAUnVX'
+  const apiKey = 'aio_bppf47tF4AX8gv1REfgyIFxrZTFh'
   var note
 
   // Sets default React state
@@ -63,7 +64,7 @@ const Dashboard = () => {
   const [tempD, setTempD] = useState([])
   const [soilD, setSoilD] = useState([])
   const [humiD, setHumiD] = useState([])
-  const [isPumpOn, setIsPumpOn] = useState(false)
+  const [isPumpOn, setIsPumpOn] = useState()
   client.on('message', function (topic, message) {
     note = message.toString()
     // Updates React state with message
@@ -95,6 +96,13 @@ const Dashboard = () => {
       }
       if (topic === 'ahihi/feeds/humidity') {
         setHumi(note)
+        setHumiD((prev) => {
+          const newTempD = [...prev.slice(1), newDate]
+          return newTempD
+        })
+      }
+      if (topic === 'ahihi/feeds/control') {
+        setIsPumpOn(note)
         setHumiD((prev) => {
           const newTempD = [...prev.slice(1), newDate]
           return newTempD
@@ -144,34 +152,47 @@ const Dashboard = () => {
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/temperature/data', setTempD, 'temp')
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/soilmoisture/data', setSoilD, 'soil')
     fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/humidity/data', setHumiD, 'humi')
-    fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/pump/data', setHumiD, 'pump')
+    fetchData('https://io.adafruit.com/api/v2/ahihi/feeds/pump/data', setIsPumpOn, 'pump')
   }, [])
 
   const date = new Date()
 
   const [input1, setInput1] = useState('')
-  const [input2, setInput2] = useState('')
+  const [input3, setInput3] = useState('')
+  const [activeInterval, setActiveInterval] = useState('')
 
   const handleInputChange1 = (e) => {
     setInput1(e.target.value)
   }
 
-  const handleInputChange2 = (e) => {
-    setInput2(e.target.value)
+  const handleInputChange3 = (e) => {
+    setInput3(e.target.value)
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    setInput1('')
-    setInput2('')
-    // Tạo một đối tượng dữ liệu để gửi đi
-    const dataToSend = `${input1} ${input2}`
+  const handleChangePumpControl = () => {
+    setIsPumpOn((pre) => {
+      publish('ahihi/feeds/control', `pump ${pre ? 0 : 1}`)
+      return pre ? 0 : 1
+    })
+  }
 
-    // Gửi dữ liệu bằng Axios
-    publish('ahihi/feeds/control', dataToSend)
+  const handleSubmit = (device, e) => {
+    e.preventDefault()
+    if (device === 'pump') {
+      const dataToSend = `time ${activeInterval} ${input1}`
+      console.log(activeInterval)
+      setInput1('')
+      publish('ahihi/feeds/control', dataToSend)
+    } else {
+      setInput3('')
+      const dataToSend = `${device} ${input3}`
+      publish('ahihi/feeds/control', dataToSend)
+    }
+  }
+  const onChange = (value, dateString) => {
+    setActiveInterval(dateString)
   }
   //display state pumb
-
   return (
     <>
       <h3>Pump control</h3>
@@ -179,7 +200,12 @@ const Dashboard = () => {
         <CCol sm="12">
           <CCard>
             <CCardBody color={isPumpOn ? 'danger' : 'success'}>
-              <p>Pump is {isPumpOn ? 'on' : 'off'}</p>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <p style={{ margin: 10 }}>Pump is</p>
+                <CButton color="primary" onClick={handleChangePumpControl}>
+                  {isPumpOn === 1 ? 'on' : 'off'}
+                </CButton>
+              </div>
             </CCardBody>
           </CCard>
         </CCol>
@@ -188,41 +214,61 @@ const Dashboard = () => {
         className="row row-cols-lg-auto g-3 align-items-center"
         style={{ paddingBottom: '20px', paddingTop: '20px' }}
       >
-        <CCol xs={12}>
-          <CFormLabel className="visually-hidden" htmlFor="inlineFormInputGroupUsername">
-            Count down
-          </CFormLabel>
-          <CInputGroup>
-            <CInputGroupText>@</CInputGroupText>
-            <CFormInput
-              id="inlineFormInputGroupUsername"
-              placeholder="Count down"
-              value={input1}
-              onChange={handleInputChange1}
-            />
-          </CInputGroup>
-        </CCol>
+        <p>Set timer to active pump</p>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <CCardBody>
+            <CCol xs={12}>
+              <Space direction="vertical" size={12}>
+                <DatePicker showTime onChange={onChange} format="DD/MM/YYYY-HH:mm:ss" />
+              </Space>
+            </CCol>
 
-        <CCol xs={12}>
-          <CFormLabel className="visually-hidden" htmlFor="inlineFormInputGroupUsername">
-            Active
-          </CFormLabel>
-          <CInputGroup>
-            <CInputGroupText>@</CInputGroupText>
-            <CFormInput
-              id="inlineFormInputGroupUsername"
-              placeholder="Active"
-              value={input2}
-              onChange={handleInputChange2}
-            />
-          </CInputGroup>
-        </CCol>
+            <CCol xs={12}>
+              <CFormLabel
+                className="visually-hidden"
+                htmlFor="inlineFormInputGroupUsername"
+              ></CFormLabel>
+              <CInputGroup>
+                <CFormInput
+                  id="inlineFormInputGroupUsername"
+                  placeholder="Active"
+                  value={input1}
+                  onChange={handleInputChange1}
+                />
+              </CInputGroup>
+            </CCol>
 
-        <CCol xs={12}>
-          <CButton type="submit" onClick={handleSubmit}>
-            Submit
-          </CButton>
-        </CCol>
+            <CCol xs={12}>
+              <CButton type="submit" onClick={(e) => handleSubmit('pump', e)}>
+                Submit
+              </CButton>
+            </CCol>
+          </CCardBody>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <CCardBody>
+            <CCol xs={12}>
+              <CFormLabel className="visually-hidden" htmlFor="inlineFormInputGroupUsername">
+                Humi when pump auto active
+              </CFormLabel>
+              <CInputGroup>
+                <CFormInput
+                  id="inlineFormInputGroupUsername"
+                  placeholder="Humi when pump auto active"
+                  value={input3}
+                  onChange={handleInputChange3}
+                />
+              </CInputGroup>
+            </CCol>
+
+            <CCol xs={12}>
+              <CButton type="submit" onClick={(e) => handleSubmit('soil', e)}>
+                Submit
+              </CButton>
+            </CCol>
+          </CCardBody>
+        </div>
       </CForm>
       <CCard className="mb-4" key={0}>
         <CCardBody>
